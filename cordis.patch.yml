@@ -1,0 +1,37 @@
+# dsh-web-brand bundle patch.
+#
+# Installed through the official CLI —
+#
+#   dsh plugin --profile web add dsh-web-brand
+#
+# — the command reconciles dsh.profile.bundles against installed packages
+# and, seeing this declaration, appends dsh-web-brand to the bundle stack,
+# so this patch merges after the dsh-web-app bundle layer.
+#
+# The official web command-line provider (`web-startup`, inside
+# @deepseek-ai/dsh-web-app) parses the `dsh --profile web` flag family with
+# a strict commander program — unknown options exit the process, so a plugin
+# cannot add flags to it. This patch therefore disables that row and inserts
+# a superset provider of its own (`web-brand-startup`, same `webStartup`
+# service, plus --title/--icon) plus the branding row (`web-brand`). The
+# webserver / web-runtime rows read only the `webStartup` service by name, so
+# the swap is transparent to them. Version caveat: the superset mirrors the
+# current web flag set (0.1.x: --host/--port/--no-open/--trusted-host) and
+# must be synced when upstream adds flags.
+- id: web-startup
+  disabled: true
+
+- insert:
+    # Superset of the disabled official web-startup row: parses the same
+    # arguments and provides the same `webStartup` service, extended with
+    # title/icon. Rows reading webStartup are unaffected.
+    - id: web-brand-startup
+      name: 'dsh-web-brand/startup'
+
+    # The branding row: merges flag > env > row config, rewrites the served
+    # index.html (<title> + <link rel="icon">), serves the icon file, and
+    # publishes globalThis.__DSH_WEB_BRAND__ for the client half. A no-op
+    # when no brand value is configured.
+    - id: web-brand
+      name: 'dsh-web-brand'
+      inject: [webStartup]
