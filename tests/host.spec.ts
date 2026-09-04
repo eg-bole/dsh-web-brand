@@ -93,15 +93,32 @@ describe('host apply (web-brand row)', () => {
   it('rewrites the served index and publishes the global row', () => {
     const mount = mountHost({ title: 'Yao' })
     expect(mount.brandHtml()).toContain('<title>Yao - DeepSeek Harness</title>')
-    expect(mount.globals()).toEqual([{ kind: 'global', name: '__DSH_WEB_BRAND__', value: { title: 'Yao', sep: ' - ' } }])
+    // No icon → status light defaults on, and the client must know it.
+    expect(mount.globals()).toEqual([{
+      kind: 'global',
+      name: '__DSH_WEB_BRAND__',
+      value: { title: 'Yao', sep: ' - ', customIcon: false, statusLight: true },
+    }])
     expect(mount.routes).toEqual([]) // no icon → no route
   })
 
-  it('is a silent no-op when nothing is branded anywhere', () => {
-    const mount = mountHost({}, {})
+  it('defaults to a status light only (no title, no icon) and rewrites nothing', () => {
+    const mount = mountHost({})
+    expect(mount.taps).toEqual([])
+    expect(mount.routes).toEqual([])
+    expect(mount.globals()).toEqual([{
+      kind: 'global',
+      name: '__DSH_WEB_BRAND__',
+      value: { sep: ' - ', customIcon: false, statusLight: true },
+    }])
+  })
+
+  it('is a silent no-op only when the status light is explicitly off and no value is set', () => {
+    const mount = mountHost({}, { statusLight: false })
     expect(mount.taps).toEqual([])
     expect(mount.routes).toEqual([])
     expect(mount.disposers).toEqual([])
+    expect(mount.globals()).toEqual([])
   })
 
   it('serves a local icon file behind the trust fence and immutable cache', () => {
@@ -134,6 +151,31 @@ describe('host apply (web-brand row)', () => {
       bad.res,
     )
     expect(bad.status).toBe(403)
+
+    // A configured icon disables the status light entirely: no global row is
+    // pushed (the client then never touches the favicon).
+    expect(mount.globals()).toEqual([])
+  })
+
+  it('reports a custom icon through the global row when a title is also set', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-web-brand-'))
+    const file = join(dir, 'brand.svg')
+    writeFileSync(file, '<svg xmlns="http://www.w3.org/2000/svg"/>')
+    const mount = mountHost({ title: 'Yao', icon: file })
+    expect(mount.globals()).toEqual([{
+      kind: 'global',
+      name: '__DSH_WEB_BRAND__',
+      value: { title: 'Yao', sep: ' - ', customIcon: true, statusLight: false },
+    }])
+  })
+
+  it('honours config.statusLight: false even without a custom icon', () => {
+    const mount = mountHost({ title: 'Yao' }, { statusLight: false })
+    expect(mount.globals()).toEqual([{
+      kind: 'global',
+      name: '__DSH_WEB_BRAND__',
+      value: { title: 'Yao', sep: ' - ', customIcon: false, statusLight: false },
+    }])
   })
 
   it('dispose unregisters every effect', () => {

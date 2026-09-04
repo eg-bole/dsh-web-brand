@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-brand",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Per-server title + favicon branding for dsh web: prefix every browser tab with a brand (Yao - DeepSeek Harness, Yao - <session> - DeepSeek Harness) and swap the favicon, so multiple dsh instances are distinguishable at a glance. Values come from --title/--icon flags, DSH_WEB_BRAND_TITLE/ICON env vars, or the profile cordis.patch.yml row config.",
   "keywords": [
     "dsh",
@@ -42,7 +42,9 @@
       "patch": "./cordis.patch.yml"
     },
     "client": {
-      "inject": [],
+      "inject": [
+        "@deepseek-ai/dsh-api-session-controller"
+      ],
       "platform": "web"
     }
   },
@@ -58,13 +60,17 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-cmdline": "^0.1.2-rc.1"
+    "@deepseek-ai/dsh-cmdline": "^0.1.2-rc.1",
+    "@deepseek-ai/dsh-api-session-controller": "^0.1.2-rc.1"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
       "optional": true
     },
     "@deepseek-ai/dsh-cmdline": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-api-session-controller": {
       "optional": true
     }
   },

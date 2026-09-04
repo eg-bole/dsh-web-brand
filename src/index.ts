@@ -12,7 +12,11 @@
  *     /dsh-web-brand/icon behind the same browser-trust fence every other
  *     dsh route applies.
  *
- * The row is a no-op when no brand value is configured anywhere.
+ * Favicon policy: when an icon is configured (any channel) it is served and
+ * linked as-is; when it is not, the browser client turns the stock whale
+ * favicon into a status light (green = a session finished, amber = something
+ * awaits you) unless the row config sets `statusLight: false`. The row is a
+ * full no-op only when no title, no icon and no status light remain.
  * @module dsh-web-brand
  */
 
@@ -144,7 +148,10 @@ export function createIconHandler(served: ServedIcon, trustedHosts: readonly str
 export function apply(ctx: Context, config?: WebBrandConfig): void {
   const host = ctx as unknown as BrandHostContext
   const brand = mergeBrand(host.webStartup, config)
-  if (brand.title === undefined && brand.icon === undefined) return
+  // Status light (official whale recoloured by session state) defaults on
+  // whenever no custom icon is configured; the row config can turn it off.
+  const statusLight = config?.statusLight ?? brand.icon === undefined
+  if (brand.title === undefined && brand.icon === undefined && !statusLight) return
 
   const tap: IndexBrandTap = { title: brand.title }
   let servedIcon: ServedIcon | undefined
@@ -158,17 +165,28 @@ export function apply(ctx: Context, config?: WebBrandConfig): void {
   ctx.effect(() => {
     const disposers: (() => void)[] = []
     // Per-request index rewrite: the very first response is already branded.
-    const untap = host.webServer.tapIndex(html => brandIndexHtml(html, tap))
-    disposers.push(untap)
+    // Only the HTML fields the user configured are rewritten — with no icon
+    // the stock favicon stays untouched server-side and the client status
+    // light recolours it at runtime.
+    if (tap.title !== undefined || tap.iconHref !== undefined) {
+      const untap = host.webServer.tapIndex(html => brandIndexHtml(html, tap))
+      disposers.push(untap)
+    }
     // Host → browser value channel. Pushed on every collectIndexInjections
     // emit (each index render), against a fresh table — same pattern as
-    // @deepseek-ai/dsh-client-modules.
-    if (tap.title !== undefined) {
+    // @deepseek-ai/dsh-client-modules. The client needs the row when there is
+    // a title to prefix or a status light to run.
+    if (tap.title !== undefined || statusLight) {
       const unsubscribe = host.on('webserver/index-inject', (table) => {
         table.push({
           kind: 'global',
           name: BRAND_GLOBAL,
-          value: { title: tap.title, sep: DEFAULT_SEPARATOR },
+          value: {
+            ...brand.title !== undefined ? { title: brand.title } : {},
+            sep: DEFAULT_SEPARATOR,
+            customIcon: brand.icon !== undefined,
+            statusLight,
+          },
         })
       })
       if (typeof unsubscribe === 'function') disposers.push(unsubscribe)
@@ -182,5 +200,5 @@ export function apply(ctx: Context, config?: WebBrandConfig): void {
       }))
     }
     return () => { for (const dispose of disposers) dispose() }
-  }, 'dsh-web-brand: index title/icon rewrite + brand global')
+  }, 'dsh-web-brand: index title/icon rewrite + brand global + status light gate')
 }

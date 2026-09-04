@@ -30,6 +30,7 @@
 - **标题前缀**：品牌始终在最前，页签扫一眼就能区分服务器；无会话（默认页）与有会话（`会话名 — DeepSeek Harness`）两种形态都统一加前缀。
 - **首帧即正确**：host 端直接改写伺服出去的 `index.html`（`<title>` 与 `<link rel="icon">`），JS 运行前页签就已是品牌形态；会话标题变化时再由浏览器端观察器补前缀，无闪烁。
 - **图标多格式**：本地文件支持 `svg / png / ico / jpg / jpeg / webp / gif / avif`，按扩展名给正确的 `Content-Type`；也支持 `http(s)://` 与 `data:` URL 直接透传。
+- **鲸鱼状态灯（不配 icon 时默认）**：没有自定义图标时，官方鲸鱼 favicon 会变身状态灯——有会话**完成**变绿（`#22C55E`）、有会话**等您处理**（审批/提问/计划确认）变琥珀（`#F59E0B`），回到台前即熄灭。配了自定义 icon 则状态灯完全不动，图标原样展示。可在 profile 配置写 `statusLight: false` 连状态灯一起关掉。
 - **三通道取值**（优先级从高到低）：
   1. CLI flag：`dsh web --title Yao --icon ./brand.png`
   2. 环境变量：`DSH_WEB_BRAND_TITLE=Yao DSH_WEB_BRAND_ICON=./brand.png dsh web`
@@ -40,7 +41,7 @@
 
 ```bash
 # 本地打包（或发布到 npm 后直接用包名）
-npm pack                 # 产出 dsh-web-brand-0.1.0.tgz
+npm pack                 # 产出 dsh-web-brand-0.1.1.tgz（prepack 自动先构建）
 
 # 装入 web profile（自动把插件 bundle 追加进 profile 的 bundles 栈）
 dsh plugin --profile web add ./dsh-web-brand-0.1.0.tgz
@@ -87,6 +88,31 @@ DSH_WEB_BRAND_TITLE=Yao DSH_WEB_BRAND_ICON=https://example.com/favicon.svg dsh w
 本地文件启动时读取一次并按内容哈希缓存（`/dsh-web-brand/icon?rev=<hash>`，
 `immutable` 缓存头，改文件后重启即换新）；路由带与 `/api` 一致的 browser-trust
 围栏。外部 URL 与 `data:` URL 直接写入 `<link rel="icon">`，不经过插件路由。
+
+### 🐳 没配 icon 时：鲸鱼状态灯
+
+```
+dsh web --title Yao                 # 不配 --icon
+  → favicon = 官方鲸鱼，按会话状态换色：
+      绿（#22C55E）  有会话完成（含切走期间完成的）
+      琥珀（#F59E0B）有会话在等您处理（ask/审批/计划确认）
+      原样          一切正常
+  → 回到本页签时「完成」灯熄灭；配了 --icon 则此处全部不生效
+```
+
+状态灯读取官方 client 会话服务（`ctx.sessions`，`@deepseek-ai/dsh-api-session-controller`
+随 dsh web 自带），只在浏览器端把 favicon 的 `<link>` 临时指向一枚按状态着色的
+鲸鱼 data-URL SVG，卸载即还原原图标。颜色固定为官方状态点色板；想要自定义颜色
+或更多设置项，可搭配 [dsh-done-whale](https://github.com/wally8-8/dsh-done-whale)
+使用（两者都装时会互相覆盖 favicon，后写者胜）。
+
+```yaml
+# 想禁用状态灯（保留官方鲸鱼原样）—— 编辑 $DSH_HOME/profiles/web/cordis.patch.yml：
+# - id: web-brand
+#   config:
+#     title: Yao
+#     statusLight: false
+```
 
 ## ⚙️ 工作原理（一句话版）
 
@@ -146,6 +172,13 @@ src/client/title.ts   # 纯函数：brandedTitle（前缀 + 防循环 guard）
 ## ⚠️ 边界
 
 - **flag 接管是"独占"的**：同一 profile 里只能有一个插件接管 `web-startup`。
+- **状态灯只在没配 icon 时启用**：配了自定义 icon（本地/http/data）就完全不动
+  favicon；`statusLight: false` 可把状态灯也关掉。
+- **状态灯依赖官方 client 会话服务**（`@deepseek-ai/dsh-api-session-controller`，
+  dsh web 自带）；颜色固定为官方状态点色板，无设置 UI。
+- **别与同类插件同装**：`dsh-web-attention-badge` / `dsh-done-whale` /
+  `dsh-web-notify` 也改标签页标题与 favicon——favicon 互相覆盖（后写者胜）；
+  标题侧品牌在前、（N）计数在后，可叠加但没测试过。
 - PWA manifest 的 `name` 仍是 "DeepSeek Harness"（只影响"安装到桌面"的应用名，不影响页签/书签）。
 - static worker preview 页不走服务端改写（tapIndex 无效），但 global 行随 boot payload
   送达，浏览器端前缀依然生效——只差 JS 前的首帧。
@@ -156,4 +189,7 @@ src/client/title.ts   # 纯函数：brandedTitle（前缀 + 防循环 guard）
 
 MIT。`src/fence.ts` 为 `@deepseek-ai/dsh-client-connection` 的
 `api-request-trust.ts` / `loopback-hostname.ts` 的 BSD-3-Clause 复刻
-（与 dsh-better-sidebar-icons 同源同注），见文件头注释。
+（与 dsh-better-sidebar-icons 同源同注），见文件头注释。状态灯的鲸鱼图形取自已安装
+dsh 的 `@deepseek-ai/dsh-web-frontend` 官方 `favicon.svg`（BSD-3-Clause），
+"favicon 状态灯"语义与书签源自 [dsh-done-whale](https://github.com/wally8-8/dsh-done-whale)
+（MIT），见 `src/client/whale.ts` 与 `src/client/status-light.ts` 文件头。

@@ -30,8 +30,10 @@
 
     # The branding row: merges flag > env > row config, rewrites the served
     # index.html (<title> + <link rel="icon">), serves the icon file, and
-    # publishes globalThis.__DSH_WEB_BRAND__ for the client half. A no-op
-    # when no brand value is configured.
+    # publishes globalThis.__DSH_WEB_BRAND__ for the client half. Favicon
+    # policy: with a custom icon the page links it as-is; without one the
+    # client recolours the stock whale as a status light (green = finished,
+    # amber = pending interaction) unless `config.statusLight: false`.
     - id: web-brand
       name: 'dsh-web-brand'
       inject: [webStartup]

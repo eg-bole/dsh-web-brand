@@ -30,6 +30,13 @@ export interface WebBrandConfig {
   title?: string
   /** Favicon: a local file path or an http(s):/data: URL. */
   icon?: string
+  /**
+   * Whale status light. Default (absent): enabled when no icon is
+   * configured — the official whale favicon then doubles as a status light
+   * (green = a session finished, amber = something awaits you). Set `false`
+   * to leave the favicon alone even without a custom icon.
+   */
+  statusLight?: boolean
 }
 
 /** The request face route handlers read (structural subset of node's

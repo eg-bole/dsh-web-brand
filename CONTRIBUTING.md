@@ -56,21 +56,20 @@ CI（GitHub Actions）也会跑同样的检查，见 `.github/workflows/ci.yml`�
 
 ```bash
 E2E=$(mktemp -d)
-FAV=$E2E/fav.svg
-printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#f00"/></svg>\n' > "$FAV"
 
-npm pack >/dev/null                        # 产出 dsh-web-brand-<ver>.tgz
-DSH_HOME=$E2E dsh plugin --profile web add ./dsh-web-brand-0.1.0.tgz
+npm pack >/dev/null                        # 产出 dsh-web-brand-<ver>.tgz（prepack 自动构建）
+PKG=$(node -p "'dsh-web-brand-'+require('./package.json').version+'.tgz'")
+DSH_HOME=$E2E dsh plugin --profile web add ./"$PKG"
 
-DSH_HOME=$E2E dsh web --title SmokeTest --icon "$FAV" --port 0 --no-open > "$E2E/boot.log" 2>&1 &
+DSH_HOME=$E2E dsh web --title SmokeTest --port 0 --no-open > "$E2E/boot.log" 2>&1 &
 SRV=$!
 for i in $(seq 1 50); do grep -q 'http://127' "$E2E/boot.log" && break; sleep 0.2; done
 
 URL=$(grep -oE 'http://127\.0\.0\.1:[0-9]+[^ ]*' "$E2E/boot.log" | head -1)
 echo "URL=$URL"
 curl -fsS "$URL" | grep -F '<title>SmokeTest - DeepSeek Harness</title>'
-curl -fsS "$URL" | grep -F '__DSH_WEB_BRAND__'
-curl -fsSI "$URL/dsh-web-brand/icon" | grep -i 'content-type'
+curl -fsS "$URL" | grep -F '__DSH_WEB_BRAND__'           # 应含 "customIcon":false,"statusLight":true
+curl -fsS "$URL" | grep -F 'dsh-api-session-controller'  # 状态灯的 sessions 服务已预载
 
 kill "$SRV" 2>/dev/null
 rm -rf "$E2E"                              # 清理；用 $SRV kill，别用 pkill 模式匹配
