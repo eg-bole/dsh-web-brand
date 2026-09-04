@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  test:
+    name: typecheck + test + build + pack (${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack and verify tarball completeness
+        run: |
+          PKG="dsh-web-brand-$(node -p "require('./package.json').version").tgz"
+          npm pack >/dev/null
+          echo "packed: $PKG"
+          tar -tzf "$PKG" > /tmp/packed.txt
+          for f in \
+            package/package.json \
+            package/cordis.patch.yml \
+            package/lib/index.js \
+            package/lib/startup.js \
+            package/lib/client.js \
+            package/README.md \
+            package/LICENSE \
+            package/CHANGELOG.md; do
+            grep -qx "$f" /tmp/packed.txt || { echo "missing: $f"; exit 1; }
+          done
+          echo "tarball OK"

@@ -15,6 +15,11 @@
 纯插件实现 · 不改 dsh 核心 · 值为 flag / 环境变量 / profile 配置三通道
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![npm](https://img.shields.io/npm/v/dsh-web-brand)](https://www.npmjs.com/package/dsh-web-brand)
+[![Node](https://img.shields.io/node/v/dsh-web-brand)](https://www.npmjs.com/package/dsh-web-brand)
+<!-- 推送到 GitHub 后：把两处 OWNER 换成你的用户名/组织并启用本行（CI 徽章）
+[![CI](https://github.com/OWNER/dsh-web-brand/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/dsh-web-brand/actions/workflows/ci.yml)
+-->
 
 </div>
 
@@ -47,6 +52,9 @@ dsh plugin --profile web add ./dsh-web-brand-0.1.0.tgz
 > 自己的超集 provider），镜像的是 dsh 0.1.x 的 web flag 集
 > （`--host/--port/--no-open/--trusted-host`）。上游给 web 新增 flag 时需同步
 > `src/startup.ts`。
+
+兼容性：已验证 dsh `0.1.2-rc.1`；Node 要求 `^22.19.0 || >=24.0.0`
+（与 dsh 上游一致，CI 在 Node 22 / 24 上跑）。
 
 ## 🚀 用法
 
@@ -98,8 +106,29 @@ npm install
 npm test          # vitest：纯逻辑 + 假 host 集成（无需 cordis 树）
 npm run typecheck
 npm run build     # tsdown：lib/index.js + lib/startup.js（node ESM）+ lib/client.js（浏览器闭包）
-npm pack
+npm pack          # prepack 钩子会自动先 build，产出完整 tarball
 ```
+
+## 🚀 发布 / 开源清单
+
+**首次发布前（一次性，仓库推上 GitHub 后）：**
+
+1. 建 GitHub 仓库并推送，然后开启本文顶部注释掉的 CI 徽章（替换 `OWNER`）。
+2. 在 `package.json` 补上 `repository` / `bugs` / `homepage` 三个字段（指向
+   GitHub 仓库）——npm provenance 与发布元数据都依赖它。
+3. `npm login`；在 GitHub 仓库 **Settings → Secrets → Actions** 添加
+   `NPM_TOKEN`（npm 的 Automation token，scope: publish）。
+4. 检查 `LICENSE` 年份/版权人、Git 身份（`git config user.name/email`）。
+
+**发新版本（tag 即发布，一条命令）：**
+
+```bash
+npm run typecheck && npm test && npm run build   # 本地先全绿
+npm version patch -m "chore: release v%s"         # 改版本号 + 打 tag + 提交
+git push --tags                                    # CI 的 Publish workflow 自动 npm publish
+```
+
+> npm / Node 徽章在首次发布后自动点亮；想看 CI 是否通过，推完看仓库 Actions 页。
 
 ## 📁 结构
 

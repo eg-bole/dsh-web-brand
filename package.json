@@ -2,6 +2,19 @@
   "name": "dsh-web-brand",
   "version": "0.1.0",
   "description": "Per-server title + favicon branding for dsh web: prefix every browser tab with a brand (Yao - DeepSeek Harness, Yao - <session> - DeepSeek Harness) and swap the favicon, so multiple dsh instances are distinguishable at a glance. Values come from --title/--icon flags, DSH_WEB_BRAND_TITLE/ICON env vars, or the profile cordis.patch.yml row config.",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "deepseek",
+    "plugin",
+    "cordis",
+    "web",
+    "tab",
+    "title",
+    "favicon",
+    "branding",
+    "icon"
+  ],
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -21,7 +34,8 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "dsh": {
     "bundle": {
@@ -36,7 +50,8 @@
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "pack": "npm pack"
+    "pack": "npm pack",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "commander": "^15.0.0"
@@ -60,6 +75,9 @@
     "tsdown": "^0.22.14",
     "typescript": "^5.6.2",
     "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
   },
   "license": "MIT"
 }
