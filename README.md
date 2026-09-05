@@ -17,9 +17,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/dsh-web-brand)](https://www.npmjs.com/package/dsh-web-brand)
 [![Node](https://img.shields.io/node/v/dsh-web-brand)](https://www.npmjs.com/package/dsh-web-brand)
-<!-- 推送到 GitHub 后：把两处 OWNER 换成你的用户名/组织并启用本行（CI 徽章）
-[![CI](https://github.com/OWNER/dsh-web-brand/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/dsh-web-brand/actions/workflows/ci.yml)
--->
+[![CI](https://github.com/eg-bole/dsh-web-brand/actions/workflows/ci.yml/badge.svg)](https://github.com/eg-bole/dsh-web-brand/actions/workflows/ci.yml)
 
 </div>
 
@@ -40,11 +38,12 @@
 ## 📦 安装
 
 ```bash
-# 本地打包（或发布到 npm 后直接用包名）
-npm pack                 # 产出 dsh-web-brand-0.1.1.tgz（prepack 自动先构建）
+# 发布到 npm 后，直接按包名安装（自动把插件 bundle 追加进 profile 的 bundles 栈）：
+dsh plugin --profile web add dsh-web-brand
 
-# 装入 web profile（自动把插件 bundle 追加进 profile 的 bundles 栈）
-dsh plugin --profile web add ./dsh-web-brand-0.1.0.tgz
+# 本地 / 私有安装：先打包再装产物（npm pack 的 prepack 钩子会自动先构建）：
+npm pack                       # 产出 dsh-web-brand-0.1.1.tgz
+dsh plugin --profile web add ./dsh-web-brand-0.1.1.tgz
 
 # 重启 dsh web 后生效
 ```
@@ -137,14 +136,14 @@ npm pack          # prepack 钩子会自动先 build，产出完整 tarball
 
 ## 🚀 发布 / 开源清单
 
-**首次发布前（一次性，仓库推上 GitHub 后）：**
+**首次发布前（一次性，已完成 ✅）：**
 
-1. 建 GitHub 仓库并推送，然后开启本文顶部注释掉的 CI 徽章（替换 `OWNER`）。
-2. 在 `package.json` 补上 `repository` / `bugs` / `homepage` 三个字段（指向
+1. ✅ 建 GitHub 仓库并推送（本仓库 `github.com/eg-bole/dsh-web-brand`），CI 徽章已启用。
+2. ✅ 在 `package.json` 补上 `repository` / `bugs` / `homepage` 三个字段（指向
    GitHub 仓库）——npm provenance 与发布元数据都依赖它。
-3. `npm login`；在 GitHub 仓库 **Settings → Secrets → Actions** 添加
-   `NPM_TOKEN`（npm 的 Automation token，scope: publish）。
-4. 检查 `LICENSE` 年份/版权人、Git 身份（`git config user.name/email`）。
+3. ⬜ `npm login`；在 GitHub 仓库 **Settings → Secrets → Actions** 添加
+   `NPM_TOKEN`（npm 的 Automation token，scope: publish）——发布前唯一待办。
+4. ✅ 检查 `LICENSE` 年份/版权人、Git 身份（`git config user.name/email`）。
 
 **发新版本（tag 即发布，一条命令）：**
 
