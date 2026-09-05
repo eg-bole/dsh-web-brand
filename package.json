@@ -85,5 +85,13 @@
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eg-bole/dsh-web-brand.git"
+  },
+  "bugs": {
+    "url": "https://github.com/eg-bole/dsh-web-brand/issues"
+  },
+  "homepage": "https://github.com/eg-bole/dsh-web-brand#readme"
 }
