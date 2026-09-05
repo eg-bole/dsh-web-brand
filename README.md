@@ -38,15 +38,31 @@
 ## 📦 安装
 
 ```bash
-# 发布到 npm 后，直接按包名安装（自动把插件 bundle 追加进 profile 的 bundles 栈）：
 dsh plugin --profile web add dsh-web-brand
-
-# 本地 / 私有安装：先打包再装产物（npm pack 的 prepack 钩子会自动先构建）：
-npm pack                       # 产出 dsh-web-brand-0.1.1.tgz
-dsh plugin --profile web add ./dsh-web-brand-0.1.1.tgz
-
-# 重启 dsh web 后生效
 ```
+
+（`dsh plugin` 会把插件装进该 profile 自己的目录，并自动把它声明的 bundle
+`cordis.patch.yml` 追加进 profile 的 bundles 栈；此命令需要 PATH 里有
+[pnpm](https://pnpm.io/installation)，首次使用会自动初始化 profile。）
+
+从源码安装：
+
+```bash
+git clone https://github.com/eg-bole/dsh-web-brand.git
+cd dsh-web-brand
+npm install
+npm run build
+dsh plugin --profile web add link:"$PWD"
+```
+
+本地打包安装（无 registry 环境 / 私有分发）：
+
+```bash
+npm pack                       # 产出 dsh-web-brand-0.1.1.tgz（prepack 自动先构建）
+dsh plugin --profile web add ./dsh-web-brand-0.1.1.tgz
+```
+
+DSH 对 client 改动热加载；安装 / 升级插件版本后建议重启 `dsh web`。
 
 > 版本注意：插件会接管 `dsh web` 的 flag 解析（禁用官方 `web-startup` 行，插入
 > 自己的超集 provider），镜像的是 dsh 0.1.x 的 web flag 集
@@ -55,6 +71,17 @@ dsh plugin --profile web add ./dsh-web-brand-0.1.1.tgz
 
 兼容性：已验证 dsh `0.1.2-rc.1`；Node 要求 `^22.19.0 || >=24.0.0`
 （与 dsh 上游一致，CI 在 Node 22 / 24 上跑）。
+
+## 🗑️ 卸载
+
+```bash
+dsh plugin --profile web remove dsh-web-brand
+```
+
+卸载（或插件禁用 / 热重载）时，插件的所有注册——`<title>` / favicon 改写、
+global 行、图标路由——都会**恢复为宿主原样**，官方 `web-startup` flag 解析
+一并回归，零残留。卸载后记得删掉 profile `cordis.patch.yml` 里手动加的
+`web-brand` 行配置。
 
 ## 🚀 用法
 
