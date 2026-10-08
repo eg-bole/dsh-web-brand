@@ -3,21 +3,28 @@
  *
  * When no custom icon is configured the browser-tab favicon becomes a status
  * light, following the idea of dsh-done-whale (MIT): the official whale glyph
- * turns green when a main session finished and amber when a session is
+ * turns green when a session finished unread and amber when a session is
  * waiting for your interaction. When a custom icon IS configured the host
  * never enables this module, so the custom icon is left completely alone.
  *
- * Status source: `ctx.sessions.list` — the official client-side sessions
- * store (provided by @deepseek-ai/dsh-api-session-controller's client half;
- * see the ISessions contract). Rows carry the same facts the official sidebar
- * dots render: `running`, `completed` (finished while not selected), and
- * `pendingInteraction` (a blocking user interaction). Subagent rows are
- * ignored — the status reflects main sessions only.
+ * Two official client stores supply the facts, exactly as the official
+ * workspace rows join them (`@deepseek-ai/dsh-client-ui-workspace`,
+ * src/client/tree.ts `sessionNode`):
+ *
+ *  - `ctx.sessions.list` (@deepseek-ai/dsh-api-session-controller/client)
+ *    owns the catalog rows, including the `origin: 'subagent'` mark the
+ *    status light filters on;
+ *  - `ctx.uiSession.sessionStatus` (@deepseek-ai/dsh-client-ui-session/client)
+ *    owns the per-session status facts — `completionUnread` (a stop the main
+ *    view has not acknowledged) and `pendingInteraction`.
+ *
+ * `completionUnread` replaced the older `SessionSummary.completed` +
+ * `SessionListState.current` pair that dsh 0.1.x retired: it already covers
+ * "finished while the tab was hidden with the session selected", so this
+ * module tracks no running edges of its own.
  *
  * Pure decision logic lives in statusOf() and is unit-tested; the DOM mount
- * mirrors dsh-done-whale's bookkeeping (self-tracked running edges + the
- * "finished while this tab was hidden and the session was selected" gap the
- * host does not report) and restores the original favicon on dispose.
+ * restores the original favicon on dispose.
  */
 
 import { whaleSvgMarkup } from './whale.ts'
@@ -26,44 +33,64 @@ import { whaleSvgMarkup } from './whale.ts'
 export const STATUS_GREEN = '#22C55E'
 export const STATUS_AMBER = '#F59E0B'
 
-/** Structural mirrors of the official client sessions store (no @deepseek-ai
- *  runtime import — same policy as the host's types.ts). */
+/**
+ * Interaction kinds the official UI surfaces, and therefore the only ones the
+ * favicon treats as "awaits you" (mirror of `visiblePendingKind` in
+ * @deepseek-ai/dsh-client-ui-workspace src/client/tree.ts). A kind the UI
+ * does not surface must not pin the favicon amber with no way to clear it.
+ */
+export const VISIBLE_PENDING_KINDS = ['approval', 'plan-review', 'question'] as const
+
+/** Structural mirror of the official `SessionStatus`. */
+export interface StatusSessionStatus {
+  /** Latest known running state; absent until a baseline or event establishes it. */
+  running?: boolean
+  /** Highest-precedence domain request awaiting user interaction. */
+  pendingInteraction?: { readonly kind: string }
+  /** A stop outside the main view the user has not acknowledged yet. */
+  completionUnread: boolean
+}
+
+/** Structural mirror of the official `SessionStatusSnapshot`. */
+export type StatusSnapshot = ReadonlyMap<string, StatusSessionStatus>
+
+/** Structural mirror of the `SessionSummary` fields the status light reads. */
 export interface StatusSessionRow {
-  id: string
   /** Coarse durable origin; only `subagent` is ever set. */
   origin?: 'subagent'
-  running: boolean
-  /** Finished while not selected and not yet opened. Absent = false. */
-  completed?: boolean
-  /** Blocking user interaction; presence = amber. */
-  pendingInteraction?: unknown
 }
 
-export interface StatusSessionState {
-  ids?: readonly string[]
+/** Structural mirror of the `SessionListState` fields the status light reads. */
+export interface StatusListState {
   byId: Record<string, StatusSessionRow>
-  current?: string
 }
 
-export interface StatusSessionsList {
-  getSnapshot(): StatusSessionState
+/** The observable face both official stores expose. */
+export interface StatusStore<Snapshot> {
+  getSnapshot(): Snapshot
   subscribe(listener: () => void): () => void
 }
 
 /** The favicon state the session facts map to; null = keep the original icon. */
 export type StatusLightState = 'green' | 'amber' | null
 
-/** Decide the favicon state from the session list snapshot. Subagent rows and
- *  finished-but-visible sessions do not light the whale. */
-export function statusOf(
-  state: StatusSessionState,
-  hiddenDone: ReadonlySet<string> = new Set(),
-): StatusLightState {
+/**
+ * Decide the favicon state from the session catalog and the status map.
+ * Subagent rows are ignored, so the light reflects main sessions only. Green
+ * wins over amber: an unacknowledged completion is the stronger signal.
+ * @param list - the official sessions catalog snapshot.
+ * @param statuses - the official `uiSession` status snapshot.
+ * @returns the light state, or null to keep the page's own favicon.
+ */
+export function statusOf(list: StatusListState, statuses: StatusSnapshot): StatusLightState {
   let amber = false
-  for (const row of Object.values(state.byId)) {
+  for (const [id, row] of Object.entries(list.byId)) {
     if (row.origin === 'subagent') continue
-    if (row.completed === true || hiddenDone.has(row.id)) return 'green'
-    if (row.pendingInteraction !== undefined) amber = true
+    const status = statuses.get(id)
+    if (status === undefined) continue
+    if (status.completionUnread) return 'green'
+    const kind = status.pendingInteraction?.kind
+    if (kind !== undefined && VISIBLE_PENDING_KINDS.some(visible => visible === kind)) amber = true
   }
   return amber ? 'amber' : null
 }
@@ -73,76 +100,53 @@ export function whaleDataUrl(hex: string): string {
   return `data:image/svg+xml,${encodeURIComponent(whaleSvgMarkup(hex))}`
 }
 
-/** The link element the status light replaces. */
-function iconLink(): HTMLLinkElement | null {
-  return document.head.querySelector('link[rel~="icon"]')
+/**
+ * Every favicon link the page carries. The stock page ships two theme-scoped
+ * variants (dark and light), and the browser paints whichever matches the
+ * current theme, so recolouring only the first would leave the stock whale in
+ * the other theme.
+ */
+function iconLinks(): HTMLLinkElement[] {
+  return [...document.head.querySelectorAll('link[rel~="icon"]')]
+    .filter((element): element is HTMLLinkElement => element instanceof HTMLLinkElement)
 }
 
 /**
- * Mount the status light over a live sessions list. Returns a disposer that
- * unsubscribes and restores the favicon the page had when this mounted.
+ * Mount the status light over the two live official stores. Returns a
+ * disposer that unsubscribes and restores the favicon the page had when this
+ * mounted.
+ * @param list - official sessions catalog store.
+ * @param statuses - official `uiSession` status store.
+ * @returns the disposer restoring the original favicon.
  */
-export function mountStatusLight(list: StatusSessionsList): () => void {
-  const link = iconLink()
-  const originalHref = link?.href ?? '/favicon.svg'
+export function mountStatusLight(
+  list: StatusStore<StatusListState>,
+  statuses: StatusStore<StatusSnapshot>,
+): () => void {
+  /** The href each link had when this mounted, so restore is exact. */
+  const originals = iconLinks().map(link => [link, link.href] as const)
   /** The href we set last; null = original icon is in place. */
   let applied: string | null = null
-  /** Self-tracked running edges (mirror of the official prevRunning). */
-  const prevRunning = new Map<string, boolean>()
-  /** Main session finished while selected AND this tab was hidden. */
-  const hiddenDone = new Set<string>()
 
   const setHref = (href: string): void => {
-    const current = iconLink()
-    if (current !== null) current.href = href
+    for (const link of iconLinks()) link.href = href
   }
   const restore = (): void => {
-    if (applied !== null) {
-      setHref(originalHref)
-      applied = null
-    }
-  }
-
-  /** running true→false edges: the host reports "finished while not selected"
-   *  via row.completed; the "finished while selected but tab hidden" gap is
-   *  tracked here. Re-running and removed sessions clear the entry. */
-  function trackEdges(state: StatusSessionState): void {
-    for (const row of Object.values(state.byId)) {
-      const prev = prevRunning.get(row.id)
-      if (prev === undefined) {
-        prevRunning.set(row.id, row.running)
-        continue
-      }
-      if (prev && !row.running) {
-        if (row.id === state.current && document.visibilityState === 'hidden') hiddenDone.add(row.id)
-      } else if (row.running) {
-        hiddenDone.delete(row.id)
-      }
-      prevRunning.set(row.id, row.running)
-    }
-    for (const id of [...prevRunning.keys()]) {
-      if (!(id in state.byId)) {
-        prevRunning.delete(id)
-        hiddenDone.delete(id)
-      }
-    }
+    if (applied === null) return
+    for (const [link, href] of originals) link.href = href
+    applied = null
   }
 
   /** Green/amber decision; null = original icon. */
-  function targetOf(state: StatusSessionState): string | null {
-    const stateKind = statusOf(state, hiddenDone)
-    if (stateKind === 'green') return whaleDataUrl(STATUS_GREEN)
-    if (stateKind === 'amber') return whaleDataUrl(STATUS_AMBER)
-    return null
-  }
-
   function sync(): void {
     try {
-      const state = list.getSnapshot()
-      trackEdges(state)
-      const next = targetOf(state)
-      if (next === null) restore()
-      else if (applied !== next) {
+      const state = statusOf(list.getSnapshot(), statuses.getSnapshot())
+      if (state === null) {
+        restore()
+        return
+      }
+      const next = whaleDataUrl(state === 'green' ? STATUS_GREEN : STATUS_AMBER)
+      if (applied !== next) {
         setHref(next)
         applied = next
       }
@@ -151,22 +155,13 @@ export function mountStatusLight(list: StatusSessionsList): () => void {
     }
   }
 
-  /** Returning to the tab clears the "finished while hidden" light (V0-02). */
-  const onVisibility = (): void => {
-    if (document.visibilityState !== 'visible') return
-    if (hiddenDone.size > 0) {
-      hiddenDone.clear()
-      sync()
-    }
-  }
-  document.addEventListener('visibilitychange', onVisibility)
-
   const unsubscribeList = list.subscribe(sync)
+  const unsubscribeStatus = statuses.subscribe(sync)
   sync()
 
   return () => {
     unsubscribeList()
-    document.removeEventListener('visibilitychange', onVisibility)
+    unsubscribeStatus()
     restore()
   }
 }

@@ -64,11 +64,18 @@ export function brandIndexHtml(html: string, tap: IndexBrandTap, sep: string = D
   }
   if (tap.iconHref !== undefined && tap.iconHref !== '') {
     const link = iconLinkMarkup(tap)
-    // The stock dsh page carries exactly one `<link rel="icon" ...>`; rewrite
-    // it in place so the browser trust order stays unchanged.
-    const iconLinkRe = /<link\s+rel="icon"[^>]*>/i
-    if (iconLinkRe.test(out)) {
-      out = out.replace(iconLinkRe, () => link)
+    // The stock page ships two theme-scoped icon links (a dark and a light
+    // variant). A branded icon has no per-theme variants, so the first link
+    // becomes the branded one and the rest are dropped — leaving a second
+    // stock link in place would keep the stock whale in that theme.
+    const iconLinkRe = /<link\s+rel="icon"[^>]*>/gi
+    if (out.match(iconLinkRe) !== null) {
+      let replaced = false
+      out = out.replace(iconLinkRe, () => {
+        if (replaced) return ''
+        replaced = true
+        return link
+      })
     } else {
       // No icon link (custom index): insert one at the top of the head.
       out = out.replace(/<head[^>]*>/i, match => `${match}\n    ${link}`)

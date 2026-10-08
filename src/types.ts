@@ -16,6 +16,12 @@ export interface WebStartupValues {
   host?: string
   /** `--port`, absent when the invocation did not name one. */
   port?: number
+  /**
+   * `--public-url`, absent when not specified: the advertised HTTP(S) root a
+   * prefix-stripping proxy is reached through. Upstream added the flag after
+   * dsh 0.2.0-rc.2; versions without a consumer simply ignore the value.
+   */
+  publicUrl?: string
   /** Explicit `--trusted-host` authorities, in argument order. */
   trustedHosts: string[]
   /** `--title`, the browser-tab brand prefix (dsh-web-brand extension). */

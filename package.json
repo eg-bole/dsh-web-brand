@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-brand",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Per-server title + favicon branding for dsh web: prefix every browser tab with a brand (Yao - DeepSeek Harness, Yao - <session> - DeepSeek Harness) and swap the favicon, so multiple dsh instances are distinguishable at a glance. Values come from --title/--icon flags, DSH_WEB_BRAND_TITLE/ICON env vars, or the profile cordis.patch.yml row config.",
   "keywords": [
     "dsh",
@@ -43,7 +43,8 @@
     },
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-api-session-controller"
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-ui-session"
       ],
       "platform": "web"
     }
@@ -60,8 +61,9 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-cmdline": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-api-session-controller": "^0.1.2-rc.1"
+    "@deepseek-ai/dsh-api-session-controller": ">=0.1.7-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-session": ">=0.1.7-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-cmdline": ">=0.1.7-rc.2 <0.3.0"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
@@ -72,11 +74,14 @@
     },
     "@deepseek-ai/dsh-api-session-controller": {
       "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-session": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-cmdline": "^0.1.2-rc.1",
+    "@deepseek-ai/dsh-cmdline": "^0.2.0-rc.2",
     "@types/node": "^22.10.0",
     "tsdown": "^0.22.14",
     "typescript": "^5.6.2",

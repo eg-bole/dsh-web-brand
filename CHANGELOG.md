@@ -5,6 +5,34 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（SemVer）。
 
+## [0.1.2] - 2026-10-08
+
+### 修复
+
+- **兼容 dsh 0.2.x**：`peerDependencies` 里的 `@deepseek-ai/dsh-cmdline` /
+  `@deepseek-ai/dsh-api-session-controller` 从 `^0.1.2-rc.1` 改为
+  `>=0.1.7-rc.2 <0.3.0`。旧范围让插件管理器在 dsh 0.2.0-rc.2 上直接拒绝安装
+  （`Plugin dsh-web-brand@0.1.1 is incompatible with dsh 0.2.0-rc.2`）。
+- **状态灯改读官方现役数据源**：dsh 0.1.x 已删除客户端会话 store 的
+  `SessionListState.current` 与 `SessionSummary.completed`——插件此前读的正是这两个
+  字段，所以状态灯自 dsh 0.1.7 起一直静默失效（绿/琥珀永不出现）。现在改为 join
+  官方 `ctx.sessions.list`（目录行 + `origin: 'subagent'`）与
+  `ctx.uiSession.sessionStatus`（`completionUnread` / `pendingInteraction`），
+  与官方工作区行的取数方式一致（`ui-workspace` `src/client/tree.ts` 的 `sessionNode`）。
+  - 「切走期间完成」改由官方的 `completionUnread` 表达，插件不再自行追踪 running
+    边沿；因此熄灭时机从「切回本页签」变为「打开该会话」（与官方侧边栏状态点一致）。
+  - 琥珀只对官方 UI 真正展示的交互类型（`approval` / `plan-review` / `question`）
+    生效，避免不可见类型的挂起请求让 favicon 永久卡在琥珀色。
+  - `ctx.uiSession` 为可选依赖：profile 未组装官方会话 UI 时，标题前缀照常生效，
+    favicon 保持不动。
+
+### 新增
+
+- **`--public-url` 支持**：上游 dsh 在 0.2.x 给 web flag 集新增了 `--public-url`
+  （反代场景对外广播的 HTTP(S) 根）。插件的超集 provider 现在一并镜像该 flag，
+  并复刻官方 `parsePublicUrl` 校验（`src/public-url.ts`，BSD-3-Clause；见文件头）。
+  在 0.2.0-rc.2 上该值无消费者，接受它是无害的。
+
 ## [0.1.1] - 2026-09-05
 
 ### 新增

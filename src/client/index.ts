@@ -12,13 +12,19 @@
  *     favicon doubles as a status light (see status-light.ts).
  *
  * The title observer writes only when the title does not already carry the
- * prefix (see brandedTitle), so its own writes never re-trigger it. The
- * status light mounts only when the host enabled it AND the client sessions
- * store is available; both restore themselves on fiber dispose. Pure DOM
- * work, no framework knowledge.
+ * prefix (see brandedTitle), so its own writes never re-trigger it.
+ *
+ * The status light joins two official client stores — `ctx.sessions`
+ * (catalog rows and their `origin`) and `ctx.uiSession` (per-session
+ * `completionUnread` / `pendingInteraction`). `uiSession` is an OPTIONAL
+ * dependency: a profile that does not compose the session UI still gets the
+ * title prefix, and the favicon is simply left alone. Both restore themselves
+ * on fiber dispose. Pure DOM work, no framework knowledge.
  */
 import type { Context } from '@deepseek-ai/cordis'
-import { mountStatusLight, type StatusSessionsList } from './status-light.ts'
+import {
+  mountStatusLight, type StatusListState, type StatusSnapshot, type StatusStore,
+} from './status-light.ts'
 import { brandedTitle, DEFAULT_SEPARATOR } from './title.ts'
 
 /** The global the host publishes (shape mirror of the host's global row). */
@@ -33,12 +39,12 @@ interface WebBrandGlobal {
   statusLight?: boolean
 }
 
-/** Services the browser cordis context may carry (structural mirror). */
+/** Services the browser cordis context may carry (structural mirrors). */
 interface ClientRuntimeContext {
-  /** Official client-side sessions store (@deepseek-ai/dsh-api-session-controller). */
-  sessions?: {
-    list?: StatusSessionsList
-  }
+  /** Official client-side sessions store (@deepseek-ai/dsh-api-session-controller/client). */
+  sessions?: { list?: StatusStore<StatusListState> }
+  /** Official session UI status store (@deepseek-ai/dsh-client-ui-session/client). */
+  uiSession?: { sessionStatus?: StatusStore<StatusSnapshot> }
 }
 
 /** The global name the host's index-injection row sets (keep in sync with
@@ -50,8 +56,8 @@ function readBrand(): WebBrandGlobal | undefined {
   return (globalThis as { [BRAND_GLOBAL]?: WebBrandGlobal })[BRAND_GLOBAL]
 }
 
-/** Services this client row consumes (cordis fiber inject; the sessions
- *  service is what the status light reads). */
+/** Services this client row consumes (cordis fiber inject). The status
+ *  light's second store, `uiSession`, is read optionally — see apply(). */
 export const inject = ['sessions'] as const
 
 /** Stable Cordis plugin name (registration id is the package name). */
@@ -88,6 +94,16 @@ export function apply(ctx: Context): void {
     if (brand.customIcon === true) return () => {}
     const sessions = (ctx as unknown as ClientRuntimeContext).sessions?.list
     if (sessions === undefined) return () => {}
-    return mountStatusLight(sessions)
-  }, 'dsh-web-brand: whale favicon status light')
+
+    // Optional dependency: the callback runs once the session UI row is up,
+    // and never runs when a profile does not compose it — the inject itself
+    // stays isolated in this child fiber so the title prefix above is
+    // unaffected either way.
+    const fiber = ctx.inject(['uiSession'], (scope) => {
+      const statuses = (scope as unknown as ClientRuntimeContext).uiSession?.sessionStatus
+      if (statuses === undefined) return
+      scope.effect(() => mountStatusLight(sessions, statuses), 'dsh-web-brand: whale favicon status light')
+    })
+    return () => { void fiber.dispose() }
+  }, 'dsh-web-brand: whale favicon status light gate')
 }

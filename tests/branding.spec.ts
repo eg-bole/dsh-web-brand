@@ -47,6 +47,32 @@ describe('brandIndexHtml', () => {
     expect(out).toContain('<link rel="icon" type="image/png" href="/x.png">')
   })
 
+  // The stock index ships a dark and a light icon link; leaving the second in
+  // place would keep the stock whale in whichever theme it covers.
+  it('collapses the theme-scoped icon links the stock index ships into one', () => {
+    const themed = INDEX.replace(
+      '    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />',
+      '    <link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)" />\n'
+      + '    <link rel="icon" type="image/svg+xml" href="/favicon.svg" media="(prefers-color-scheme: light)" />',
+    )
+    expect(themed.match(/rel="icon"/g)).toHaveLength(2)
+    const out = brandIndexHtml(themed, { iconHref: '/brand.svg', iconType: 'image/svg+xml' })
+    expect(out.match(/rel="icon"/g)).toHaveLength(1)
+    expect(out).toContain('<link rel="icon" type="image/svg+xml" href="/brand.svg">')
+    expect(out).not.toContain('favicon-dark.svg')
+    expect(out).not.toContain('favicon.svg')
+  })
+
+  it('is idempotent over the collapsed icon link', () => {
+    const themed = INDEX.replace(
+      '    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />',
+      '    <link rel="icon" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)" />\n'
+      + '    <link rel="icon" href="/favicon.svg" media="(prefers-color-scheme: light)" />',
+    )
+    const once = brandIndexHtml(themed, { iconHref: '/brand.svg' })
+    expect(brandIndexHtml(once, { iconHref: '/brand.svg' })).toBe(once)
+  })
+
   it('supports an empty original title (brand alone)', () => {
     const out = brandIndexHtml(INDEX.replace('<title>DeepSeek Harness</title>', '<title></title>'), { title: 'Yao' })
     expect(out).toContain('<title>Yao</title>')
