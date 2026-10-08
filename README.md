@@ -175,22 +175,34 @@ npm pack          # prepack 钩子会自动先 build，产出完整 tarball
 
 ## 🚀 发布 / 开源清单
 
-**首次发布前（一次性，已完成 ✅）：**
+**首次发布前（一次性）：**
 
 1. ✅ 建 GitHub 仓库并推送（本仓库 `github.com/eg-bole/dsh-web-brand`），CI 徽章已启用。
 2. ✅ 在 `package.json` 补上 `repository` / `bugs` / `homepage` 三个字段（指向
    GitHub 仓库）——npm provenance 与发布元数据都依赖它。
-3. ⬜ `npm login`；在 GitHub 仓库 **Settings → Secrets → Actions** 添加
-   `NPM_TOKEN`（npm 的 Automation token，scope: publish）——发布前唯一待办。
+3. ⬜ 在 npmjs.com 配置 **Trusted Publisher**（包页面 → Settings → Trusted
+   Publisher → GitHub Actions）：`eg-bole` / `dsh-web-brand` / `npm-publish.yml`，
+   并保持 **stage-only**。配好后 CI 用 OIDC 认证，**不需要任何 token**。
+   未经验证的 Trusted Publisher 配置会过期，所以配完就跑一次并批准，别配了就放着。
 4. ✅ 检查 `LICENSE` 年份/版权人、Git 身份（`git config user.name/email`）。
 
-**发新版本（tag 即发布，一条命令）：**
+**发新版本（CI 只负责上传，你负责批准）：**
 
 ```bash
 npm run typecheck && npm test && npm run build   # 本地先全绿
 npm version patch -m "chore: release v%s"         # 改版本号 + 打 tag + 提交
-git push --tags                                    # CI 的 Publish workflow 自动 npm publish
+git push --tags                                    # 触发 Stage release workflow
 ```
+
+推完 tag，包会进入 npm 的**暂存队列**，此时对外仍不可安装。到
+<https://www.npmjs.com/package/dsh-web-brand>（或 `npm stage list`）核对版本与
+shasum，过一次 2FA 批准即上线。
+
+> 为什么不是「CI 直接发布」：npm 要求**暂存版本必须由人过 2FA 批准**才能上线，
+> 这是防「token 泄露即发版」的设计。带 2FA bypass 的 granular token 能上传暂存，
+> 但**批准不了**，所以不要再配 `NPM_TOKEN`。见
+> [Staged publishing](https://docs.npmjs.com/staged-publishing) 与
+> [Restricting npm bypass-2FA GATs](https://github.blog/changelog/2026-07-31-restricting-npm-bypass-2fa-granular-access-tokens/)。
 
 > npm / Node 徽章在首次发布后自动点亮；想看 CI 是否通过，推完看仓库 Actions 页。
 

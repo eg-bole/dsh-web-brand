@@ -1,16 +1,37 @@
-# Publish to the npm registry on version tags (v0.1.0, v0.1.1, ...).
+# Stage a release on the npm registry on version tags (v0.1.0, v0.1.1, ...).
+#
+# npm no longer lets this workflow publish straight to the registry: a staged
+# publish uploads the tarball to the registry's stage queue, and a maintainer
+# approves it with an interactive 2FA challenge before it becomes installable.
+# That human gate is deliberate, so this job only ever stages.
+#   - https://docs.npmjs.com/staged-publishing
+#   - https://github.blog/changelog/2026-05-22-staged-publishing-and-new-install-time-controls-for-npm/
 #
 # Prerequisites (one-time, maintainer):
-#   1. Create the GitHub repository and push `main` (this repo must be public
-#      for npm provenance).
-#   2. Fill `repository` / `bugs` / `homepage` in package.json so the published
-#      metadata and npm provenance point at the GitHub repo.
-#   3. Add an npm automation token as the `NPM_TOKEN` repository secret
-#      (npmjs.com -> Access Tokens -> "Automation"; scope: publish).
+#   1. This repository is public (npm provenance requires it) and
+#      `repository` / `bugs` / `homepage` are filled in package.json.
+#   2. Configure a Trusted Publisher on npmjs.com so this job authenticates
+#      over OIDC and needs no token at all:
+#        npmjs.com -> the package -> Settings -> Trusted Publisher ->
+#        GitHub Actions, with
+#          Organization or user: eg-bole
+#          Repository:           dsh-web-brand
+#          Workflow filename:    npm-publish.yml
+#        Leave the configuration stage-only so `npm publish` from this
+#        workflow stays rejected and only `npm stage publish` is accepted.
+#      A Trusted Publisher that is never validated expires, so run this
+#      workflow once and approve the result rather than configuring it and
+#      walking away.
+#   3. Do NOT add an NPM_TOKEN secret. A granular token with 2FA bypass can
+#      stage a publish but cannot approve one, so it cannot finish a release:
+#        https://github.blog/changelog/2026-07-31-restricting-npm-bypass-2fa-granular-access-tokens/
 #
-# Release flow: `npm version patch -m "chore: release v%s" && git push --tags`
-# -> this workflow builds and publishes the package.
-name: Publish to npm
+# Release flow:
+#   npm version patch -m "chore: release v%s" && git push --tags
+#   -> this workflow stages the package
+#   -> approve it at https://www.npmjs.com/package/dsh-web-brand (2FA)
+#   -> `npm view dsh-web-brand version` reports the new version
+name: Stage release on npm
 
 on:
   push:
@@ -18,12 +39,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish:
+  stage:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm provenance (requires a public repo + repository field)
+      id-token: write # Trusted Publishing (OIDC) plus npm provenance
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,10 +59,15 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Staged publishing landed in npm 11.15.0; setup-node's node 24 ships a
+      # newer npm, so this only fails if that ever regresses.
+      - name: Check npm supports staged publishing
+        run: npm stage --help >/dev/null
+
       - name: Build
         run: npm run build
 
-      - name: Publish
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # No NODE_AUTH_TOKEN: the OIDC id-token authenticates this job, and the
+      # registry issues the provenance attestation from it.
+      - name: Stage for publishing
+        run: npm stage publish --access public
