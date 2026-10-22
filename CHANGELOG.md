@@ -5,6 +5,19 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)（SemVer）。
 
+## [0.1.3] - 2026-10-22
+
+### 修复
+
+- 兼容 DSH `0.2.1-rc.2` 移除 `webRuntime`：branding 行仅要求 `webServer` 和
+  `webStartup`，图标路由按请求读取新版 `webStartup.trustedHosts` 或旧版运行时
+  的信任列表，避免启动后一直 `pending (waiting for service: webRuntime)`。
+
+### 新增
+
+- 同步新版官方启动参数 `--tls-cert` / `--tls-key`：成对校验并将证书、私钥路径
+  传给 `webStartup.tls`，保留 DSH 原生 HTTPS 启动能力。
+
 ## [0.1.2] - 2026-10-08
 
 ### 修复

@@ -1,8 +1,9 @@
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { Context } from '@deepseek-ai/cordis'
+import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
+import * as WebBrand from '../src/index.ts'
 import { apply } from '../src/index.ts'
 import type { BrandGlobalRow } from '../src/types.ts'
 
@@ -22,14 +23,16 @@ const INDEX = (title = 'DeepSeek Harness'): string => `<!doctype html>
 interface FakeRoute { path: string; handler: (req: unknown, res: unknown) => void }
 
 /** A fake host context implementing exactly the face apply() consumes. */
-function mountHost(brand: { title?: string; icon?: string }, config?: object) {
+function mountHost(brand: { title?: string; icon?: string }, config?: object, runtimeHosts?: readonly string[]) {
   const taps: ((html: string) => string)[] = []
   const routes: FakeRoute[] = []
   const disposers: (() => void)[] = []
   let collectGlobal: ((table: { push(row: BrandGlobalRow): void }) => void) | undefined
   const host = {
-    webStartup: { openBrowser: true, trustedHosts: [], ...brand },
-    webRuntime: { trustedHosts: ['lab.internal'] },
+    webStartup: { openBrowser: true, trustedHosts: ['lab.internal'], ...brand },
+    get(service: string) {
+      return service === 'webRuntime' && runtimeHosts !== undefined ? { trustedHosts: runtimeHosts } : undefined
+    },
     webServer: {
       register(route: FakeRoute) {
         routes.push(route)
@@ -90,6 +93,20 @@ function fakeResponse() {
 }
 
 describe('host apply (web-brand row)', () => {
+  it('activates with webStartup and webServer when webRuntime does not exist', async () => {
+    const mounted = mountHost({})
+    const ctx = new Context()
+    ctx.provide('webStartup', { openBrowser: false, trustedHosts: [], title: 'Hyper' })
+    ctx.provide('webServer', mounted.host.webServer)
+    const fiber = ctx.plugin(WebBrand)
+    try {
+      await new Promise<void>(resolve => setImmediate(resolve))
+      expect(mounted.brandHtml()).toContain('<title>Hyper - DeepSeek Harness</title>')
+    } finally {
+      await fiber.dispose()
+    }
+  })
+
   it('rewrites the served index and publishes the global row', () => {
     const mount = mountHost({ title: 'Yao' })
     expect(mount.brandHtml()).toContain('<title>Yao - DeepSeek Harness</title>')
@@ -144,6 +161,10 @@ describe('host apply (web-brand row)', () => {
     expect(ok.headers['cache-control']).toContain('immutable')
     expect(ok.body).toBeInstanceOf(Uint8Array)
 
+    const trusted = fakeResponse()
+    route.handler({ method: 'GET', headers: { host: 'lab.internal:3081' } }, trusted.res)
+    expect(trusted.status).toBe(200)
+
     // Cross-site browser marker → refused.
     const bad = fakeResponse()
     route.handler(
@@ -155,6 +176,16 @@ describe('host apply (web-brand row)', () => {
     // A configured icon disables the status light entirely: no global row is
     // pushed (the client then never touches the favicon).
     expect(mount.globals()).toEqual([])
+  })
+
+  it('uses the optional runtime trust list on older DSH releases', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-web-brand-'))
+    const file = join(dir, 'brand.svg')
+    writeFileSync(file, '<svg xmlns="http://www.w3.org/2000/svg"/>')
+    const mount = mountHost({ icon: file }, undefined, ['old-runtime.internal'])
+    const response = fakeResponse()
+    mount.routes[0]!.handler({ method: 'GET', headers: { host: 'old-runtime.internal' } }, response.res)
+    expect(response.status).toBe(200)
   })
 
   it('reports a custom icon through the global row when a title is also set', () => {

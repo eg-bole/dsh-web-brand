@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-brand",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Per-server title + favicon branding for dsh web: prefix every browser tab with a brand (Yao - DeepSeek Harness, Yao - <session> - DeepSeek Harness) and swap the favicon, so multiple dsh instances are distinguishable at a glance. Values come from --title/--icon flags, DSH_WEB_BRAND_TITLE/ICON env vars, or the profile cordis.patch.yml row config.",
   "keywords": [
     "dsh",

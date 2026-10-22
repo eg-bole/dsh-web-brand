@@ -3,7 +3,7 @@
  * the official @deepseek-ai/dsh-web-app/startup it replaces (see
  * cordis.patch.yml for why the official row is disabled): it parses the
  * same `dsh --profile web` flag family (`--host`, `--port`, `--public-url`,
- * `--trusted-host`, `--no-open`), plus the dsh-web-brand extension
+ * `--trusted-host`, `--no-open`, `--tls-cert`, `--tls-key`), plus the dsh-web-brand extension
  * (`--title`, `--icon`), then provides the immutable values as the
  * `webStartup` service — the exact service the official provider publishes,
  * so the webserver / web-runtime rows are unaffected. Its `--help` text is
@@ -39,6 +39,8 @@ interface WebOptions {
   publicUrl?: string
   title?: string
   trustedHost?: string[]
+  tlsCert?: string
+  tlsKey?: string
 }
 
 /**
@@ -55,6 +57,8 @@ function webCommand(): Command {
     .option('--port <port>', 'listen port; pass 0 to let the OS pick a free one')
     .option('--public-url <url>', 'advertise this HTTP(S) root in the printed, opened, web-surface, and DSH_WEB_URL forms; grants no trust')
     .option('--trusted-host <authority...>', 'extra authority the /api browser-trust fence accepts (host or host:port; repeatable)')
+    .option('--tls-cert <file>', 'PEM server certificate chain; requires --tls-key')
+    .option('--tls-key <file>', 'unencrypted PEM private key; requires --tls-cert')
     // dsh-web-brand extension. The icon value is validated (existence /
     // format) by the branding row at activation, so a bad --icon fails the
     // boot there with the same loudness as a bad --port fails here.
@@ -89,6 +93,12 @@ export function apply(ctx: Context): void {
     if (options.port !== undefined && !/^\d+$/.test(options.port)) {
       program.error(`error: --port must be a number, got ${JSON.stringify(options.port)}`)
     }
+    let tls: WebStartupValues['tls']
+    if (options.tlsCert !== undefined && options.tlsKey !== undefined) {
+      tls = { certFile: options.tlsCert, keyFile: options.tlsKey }
+    } else if (options.tlsCert !== undefined || options.tlsKey !== undefined) {
+      program.error('error: --tls-cert and --tls-key must be supplied together')
+    }
     if (options.publicUrl !== undefined) {
       try {
         parsePublicUrl(options.publicUrl, '--public-url')
@@ -101,6 +111,7 @@ export function apply(ctx: Context): void {
       ...options.host !== undefined && { host: options.host },
       ...options.port !== undefined && { port: Number(options.port) },
       ...options.publicUrl !== undefined && { publicUrl: options.publicUrl },
+      ...tls !== undefined && { tls },
       trustedHosts: options.trustedHost ?? [],
       ...options.title !== undefined && options.title.trim() !== '' ? { title: options.title.trim() } : {},
       ...options.icon !== undefined && options.icon.trim() !== '' ? { icon: options.icon.trim() } : {},

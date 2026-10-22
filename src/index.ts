@@ -29,17 +29,15 @@ import {
 } from './branding.ts'
 import { isTrustedRequest } from './fence.ts'
 import type {
-  BrandHostContext, BrandHttpRequest, BrandHttpResponse, WebBrandConfig,
+  BrandHostContext, BrandHttpRequest, BrandHttpResponse, BrandWebRuntime, WebBrandConfig,
 } from './types.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'web-brand'
 
-/** Services required before the branding values can be merged: the parsed
- *  web flags (webStartup, provided by the plugin's own startup row), the
- *  webserver (tap + route + index-inject), and the runtime trust list
- *  (the icon route's fence authority source). */
-export const inject = ['webServer', 'webStartup', 'webRuntime']
+/** The server and parsed web flags are required. DSH 0.2.1 removed
+ *  webRuntime; older versions' trust service is read optionally per request. */
+export const inject = ['webServer', 'webStartup']
 
 /** Environment fallbacks (channel 2 of flag > env > row config). */
 export const TITLE_ENV = 'DSH_WEB_BRAND_TITLE' as const
@@ -117,9 +115,10 @@ export function resolveIcon(value: string, cwd: string): { href: string; type?: 
 }
 
 /** The exact icon route handler (mirror of the plugin route style). */
-export function createIconHandler(served: ServedIcon, trustedHosts: readonly string[]) {
+export function createIconHandler(served: ServedIcon, trustedHosts: readonly string[] | (() => readonly string[])) {
   return (request: BrandHttpRequest, response: BrandHttpResponse): void => {
-    if (!isTrustedRequest(request, trustedHosts)) {
+    const authorities = typeof trustedHosts === 'function' ? trustedHosts() : trustedHosts
+    if (!isTrustedRequest(request, authorities)) {
       response.writeHead(403)
       response.end('forbidden')
       return
@@ -142,7 +141,7 @@ export function createIconHandler(served: ServedIcon, trustedHosts: readonly str
 
 /**
  * Branding row body.
- * @param ctx - plugin context carrying webServer/webStartup/webRuntime.
+ * @param ctx - plugin context carrying webServer and webStartup.
  * @param config - the row's own config (profile cordis.patch.yml writes it).
  */
 export function apply(ctx: Context, config?: WebBrandConfig): void {
@@ -196,7 +195,10 @@ export function apply(ctx: Context, config?: WebBrandConfig): void {
       disposers.push(host.webServer.register({
         kind: 'exact',
         path: ICON_ROUTE,
-        handler: createIconHandler(servedIcon, host.webRuntime.trustedHosts),
+        handler: createIconHandler(servedIcon, () => {
+          const runtime = host.get('webRuntime') as BrandWebRuntime | undefined
+          return runtime?.trustedHosts ?? host.webStartup.trustedHosts
+        }),
       }))
     }
     return () => { for (const dispose of disposers) dispose() }

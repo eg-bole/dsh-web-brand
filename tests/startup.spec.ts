@@ -57,6 +57,17 @@ describe('web-brand startup row (superset of the official web-startup)', () => {
     expect(run([]).webStartup()).toEqual({ openBrowser: true, trustedHosts: [] })
   })
 
+  it('publishes the paired HTTPS certificate and key alongside the title', () => {
+    const harness = run(['--tls-cert', './chain.pem', '--tls-key', './key.pem', '--title', 'Hyper'])
+    expect(harness.exitCode()).toBeUndefined()
+    expect(harness.webStartup()).toEqual({
+      openBrowser: true,
+      trustedHosts: [],
+      tls: { certFile: './chain.pem', keyFile: './key.pem' },
+      title: 'Hyper',
+    })
+  })
+
   it('rejects a malformed invocation with the official exit request', () => {
     // Each of these is a usage error in the official provider too, so the
     // superset must refuse rather than publish a half-built service.
@@ -64,6 +75,8 @@ describe('web-brand startup row (superset of the official web-startup)', () => {
       ['--host', '0.0.0.0'],
       ['--port', 'abc'],
       ['--public-url', 'app.example'],
+      ['--tls-cert', './chain.pem'],
+      ['--tls-key', './key.pem'],
     ]) {
       const harness = run(args)
       expect(harness.exitCode(), args.join(' ')).toBe(1)

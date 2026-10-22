@@ -24,6 +24,8 @@ export interface WebStartupValues {
   publicUrl?: string
   /** Explicit `--trusted-host` authorities, in argument order. */
   trustedHosts: string[]
+  /** Paired PEM certificate and private-key paths for HTTPS in DSH 0.2.1+. */
+  tls?: { certFile: string; keyFile: string }
   /** `--title`, the browser-tab brand prefix (dsh-web-brand extension). */
   title?: string
   /** `--icon`, a local file path or an http(s):/data: URL (dsh-web-brand extension). */
@@ -96,9 +98,9 @@ export interface BrandIndexTable {
 /** The host plugin context face (cordis supplies these at runtime; the
  *  application casts its context to this). */
 export interface BrandHostContext {
+  get(name: string): unknown
   effect(fn: () => void | (() => void), name?: string): void
   on(event: 'webserver/index-inject', listener: (table: BrandIndexTable) => void): void | (() => void)
   webServer: BrandWebServer
-  webRuntime: BrandWebRuntime
   webStartup: WebStartupValues
 }

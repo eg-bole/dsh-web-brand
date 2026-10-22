@@ -58,20 +58,23 @@ dsh plugin --profile web add link:"$PWD"
 本地打包安装（无 registry 环境 / 私有分发）：
 
 ```bash
-npm pack                       # 产出 dsh-web-brand-0.1.2.tgz（prepack 自动先构建）
-dsh plugin --profile web add ./dsh-web-brand-0.1.2.tgz
+npm pack                       # 产出 dsh-web-brand-0.1.3.tgz（prepack 自动先构建）
+dsh plugin --profile web add ./dsh-web-brand-0.1.3.tgz
 ```
 
 DSH 对 client 改动热加载；安装 / 升级插件版本后建议重启 `dsh web`。
 
 > 版本注意：插件会接管 `dsh web` 的 flag 解析（禁用官方 `web-startup` 行，插入
 > 自己的超集 provider），镜像的是 dsh 0.2.x 的 web flag 集
-> （`--host/--port/--public-url/--no-open/--trusted-host`）。上游给 web 新增 flag 时需同步
+> （`--host/--port/--public-url/--no-open/--trusted-host/--tls-cert/--tls-key`）。上游给 web 新增 flag 时需同步
 > `src/startup.ts`。
 
-兼容性：已验证 dsh `0.1.7-rc.2` / `0.2.0-rc.2` / `0.2.1-alpha.1`；
+兼容性：支持 dsh `0.1.7-rc.2` / `0.2.0-rc.2` / `0.2.1-rc.2`；
 `peerDependencies` 声明为 `>=0.1.7-rc.2 <0.3.0`。Node 要求 `^22.19.0 || >=24.0.0`
 （与 dsh 上游一致，CI 在 Node 22 / 24 上跑）。
+
+从插件 `0.1.3` 起兼容 DSH `0.2.1-rc.2` 移除 `webRuntime` 的变化：新版图标路由
+读取 `webStartup.trustedHosts`，旧版仍优先读取原来的运行时信任列表，不再因旧服务缺失而 pending。
 
 ## 🗑️ 卸载
 
