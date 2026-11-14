@@ -57,7 +57,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "commander": "^15.0.0"
+    "commander": "^15.1.0"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
